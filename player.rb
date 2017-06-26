@@ -19,8 +19,6 @@ class Human < Player
 end
 
 class Computer < Player
-	include Minimax
-
 	attr_reader :board
 
 	def initialize(marker, board)
@@ -34,7 +32,7 @@ class Computer < Player
 	    puts "Computer is thinking..."
 
 			minimax = Minimax.new(board, marker, human_marker)
-	    board.empty? ? board.center_square_key : minimax(board, marker, human_marker)
+	    board.empty? ? board.center_square_key : minimax.optimal_move
 	  when :hard
 	    find_best_move(human_marker)
 	  when :easy
@@ -59,18 +57,4 @@ class Computer < Player
 	    choose_center_square_if_available ||
 	    choose_random_square
 	end
-
-  def try_move(board, square, new_marker)
-    new_board = {}
-
-    board.each do |num, current_marker|
-      if num == square
-        new_board[square] = new_marker
-      else
-        new_board[num] = current_marker
-      end
-    end
-
-    new_board
-  end
 end

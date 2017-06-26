@@ -1,18 +1,23 @@
-module Minimax
+class Minimax
+  attr_reader :max_player, :min_player
 
-  def minimax(state, max_player, min_player)
-    available_first_moves = state.available_moves
+  def initialize(start_state, max_player, min_player)
+    @start_state = start_state
+    @max_player = max_player
+    @min_player = min_player
+  end
+
+  def optimal_move
+    available_first_moves = @start_state.available_moves
     minimaxed_scores = {}
-    players = [max_player, min_player]
-    winning_combinations = state.winning_combinations
 
-    next_possible_board_states = available_first_moves.map do |move|
-      next_state = state.try_move(move, max_player)
+    next_possible_states = available_first_moves.map do |move|
+      next_state = @start_state.try_move(move, max_player)
       [next_state, move]
     end
 
     next_possible_states.each do |next_state, move|
-      score = minimax_score(next_state, max_player, players, winning_lines)
+      score = minimax_score(next_state, min_player)
       minimaxed_scores[score] = move
     end
 
@@ -22,56 +27,50 @@ module Minimax
 
   private
 
-  def assess(winner, max_player, min_player)
-    case winner
+  def assess(winning_player)
+    case winning_player
     when max_player then 1
     when min_player then -1
     else 0
     end
   end
 
-  def maximize_score(next_possible_board_states, players, winning_lines)
+  def maximized_score(next_possible_states)
     score = -2
-    min_player = players.last
 
-    next_possible_board_states.each do |next_state|
-      next_score = minimax_score(next_state, min_player, players, winning_lines)
+    next_possible_states.each do |next_state|
+      next_score = minimax_score(next_state, min_player)
       score = [score, next_score].max
     end
 
     score
   end
 
-  def minimize_score(next_possible_board_states, players, winning_lines)
+  def minimized_score(next_possible_states)
     score = 2
-    max_player = players.first
 
-    next_possible_board_states.each do |next_state|
-      next_score = minimax_score(next_state, max_player, players, winning_lines)
+    next_possible_states.each do |next_state|
+      next_score = minimax_score(next_state, max_player)
       score = [score, next_score].min
     end
 
     score
   end
 
-  def minimax_score(state, current_player, players, winning_lines)
-    max_player = players.first
-    min_player = players.last
-
-    if state.terminal?(state, winning_lines) # not current state, "pretend" state
-      winner = state.detect_winner
-      return assess(winner, max_player, min_player)
+  def minimax_score(state, minimax_player)
+    if state.terminal?
+      return assess(state.winning_player)
     end
 
-    available_moves = empty_squares(state)
-    next_possible_board_states = available_moves.map do |move|
-      try_move(state, move, current_player)
+    next_possible_states = state.available_moves.map do |move|
+      state.try_move(move, minimax_player)
     end
 
-    if current_player == max_player
-      maximize_score(next_possible_board_states, players, winning_lines)
-    else
-      minimize_score(next_possible_board_states, players, winning_lines)
+    case minimax_player
+    when max_player
+      maximized_score(next_possible_states)
+    when min_player
+      minimized_score(next_possible_states)
     end
   end
 end

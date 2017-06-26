@@ -19,8 +19,57 @@ class TTTGame
     @board = Board.new(SIDE_LENGTH)
     @human = Human.new(HUMAN_MARKER)
     @computer = Computer.new(COMPUTER_MARKER, board)
-    @current_marker = decide_first_player
+    @first_marker = decide_first_player
+    @current_marker = @first_marker
     @difficulty = decide_difficulty
+  end
+
+  def play
+    clear_screen
+    display_welcome_message
+
+    loop do
+      display_board
+
+      loop do
+        current_player_moves
+        break if board.someone_won? || board.full?
+        clear_screen_and_display_board #if human_turn?
+      end
+
+      display_result
+      break unless play_again?
+      reset
+      display_play_again_message
+    end
+
+    display_goodbye_message
+  end
+
+  private
+
+  def alternate_player
+    if human_turn?
+      @current_marker = COMPUTER_MARKER
+    else
+      @current_marker = HUMAN_MARKER
+    end
+  end
+
+  def clear_screen_and_display_board
+    clear_screen
+    display_board
+  end
+
+  def computer_moves
+    square_key = computer.choose_square(difficulty, human.marker)
+
+    board[square_key] = computer.marker
+  end
+
+  def current_player_moves
+    human_turn? ? human_moves : computer_moves
+    alternate_player
   end
 
   def decide_first_player
@@ -66,58 +115,6 @@ class TTTGame
     when 'h' then :hard
     when 'i' then :impossible
     end
-  end
-
-  def play
-    clear
-    display_welcome_message
-
-    loop do
-      display_board
-
-      loop do
-        current_player_moves
-        break if board.someone_won? || board.full?
-        clear_screen_and_display_board if human_turn?
-      end
-
-      display_result
-      break unless play_again?
-      reset
-      display_play_again_message
-    end
-
-    display_goodbye_message
-  end
-
-  private
-
-  def alternate_player
-    if human_turn?
-      @current_marker = COMPUTER_MARKER
-    else
-      @current_marker = HUMAN_MARKER
-    end
-  end
-
-  def clear
-    system('clear') || system('cls')
-  end
-
-  def clear_screen_and_display_board
-    clear
-    display_board
-  end
-
-  def computer_moves
-    square_key = computer.choose_square(difficulty, human.marker)
-
-    board[square_key] = computer.marker
-  end
-
-  def current_player_moves
-    human_turn? ? human_moves : computer_moves
-    alternate_player
   end
 
   def display_board
@@ -177,8 +174,8 @@ class TTTGame
 
   def reset
     board.reset
-    @current_marker = FIRST_TO_MOVE
-    clear
+    @current_marker = @first_marker
+    clear_screen
   end
 end
 

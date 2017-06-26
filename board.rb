@@ -1,19 +1,16 @@
 class Board
   attr_reader :squares, :side_length, :winning_lines
+  attr_writer :squares
 
-  def initialize(side_length)
-    @squares = {}
+  def initialize(side_length, squares = {})
+    @squares = squares
     @side_length = side_length
     @winning_lines = calculate_winning_lines
-    reset
+    reset if squares.empty?
   end
 
   def []=(key, marker)
     @squares[key].marker = marker
-  end
-
-  def available_moves
-    unmarked_keys
   end
 
   def center_square_key
@@ -23,7 +20,6 @@ class Board
   def draw
     row_squares = rows.map { |row| row.map { |num| @squares[num] } }
     last_row = row_squares.pop
-
     row_squares.each do |row|
       draw_row(row)
       draw_border(side_length)
@@ -34,6 +30,10 @@ class Board
 
   def empty?
     marked_keys.empty?
+  end
+
+  def end_of_game?
+    someone_won? || full? 
   end
 
   def lines_with_n_identical_markers(n)
@@ -84,10 +84,6 @@ class Board
     winning_lines
   end
 
-  def terminal?
-    #end of game
-  end
-
   def winning_marker
     @winning_lines.each do |line|
       line_squares = squares.values_at(*line)
@@ -98,9 +94,38 @@ class Board
     nil
   end
 
-  private
+  # Methods used only by Minimax class
 
-  attr_reader :side_length
+  def available_moves
+    unmarked_keys
+  end
+
+  def terminal?
+    end_of_game?
+  end
+
+  # Creates a copy of the current board and returns the
+  # hypothetical next state.
+  def try_move(new_key, new_marker)
+    new_board = Board.new(@side_length)
+
+    squares.each do |key, square|
+      new_board[key] = square.marker
+    end
+
+    new_board[new_key] = new_marker
+    new_board
+  end
+
+  def winning_player
+    winning_marker
+  end
+
+  def winning_combinations
+    winning_lines
+  end
+
+  private
 
   def draw_row(row_squares)
     top = ''

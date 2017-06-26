@@ -2,15 +2,42 @@ require_relative 'displayable'
 require_relative 'minimax'
 
 class Player
-  attr_reader :marker
+  attr_reader :marker, :score
 
   def initialize(marker)
     @marker = marker
+    @score = 0
+  end
+
+  def add_point!
+  	@score += 1
+  end
+
+  def reset_score
+  	@score = 0
+  end
+
+  def to_s
+  	@name
   end
 end
 
 class Human < Player
 	include Displayable
+
+	def initialize(marker)
+		super
+		@name = choose_name
+	end
+
+	def choose_name
+		loop do
+      prompt('What is your name?')
+      new_name = gets.chomp
+      return new_name if new_name =~ /^\w+/
+      prompt('Not a valid name. The first character must not be a space.')
+    end
+	end
 
 	def choose_square(empty_squares)
 		options = empty_squares.map(&:to_s)
@@ -24,6 +51,7 @@ class Computer < Player
 	def initialize(marker, board)
 		super(marker)
 		@board = board
+		@name = 'Computer'
 	end
 
   def choose_square(difficulty, human_marker)

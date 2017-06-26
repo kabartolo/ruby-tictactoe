@@ -7,8 +7,11 @@ require 'pry'
 class TTTGame
   HUMAN_MARKER = 'X'
   COMPUTER_MARKER = 'O'
+
   FIRST_TO_MOVE = :choose # :choose, HUMAN_MARKER, or COMPUTER_MARKER
   DIFFICULTY = :choose # :choose, :easy, :hard, or :impossible
+  
+  WINNING_SCORE = 5
   SIDE_LENGTH = 3
 
   include Displayable
@@ -19,14 +22,16 @@ class TTTGame
     @board = Board.new(SIDE_LENGTH)
     @human = Human.new(HUMAN_MARKER)
     @computer = Computer.new(COMPUTER_MARKER, board)
+
     @first_marker = decide_first_player
     @current_marker = @first_marker
     @difficulty = decide_difficulty
+
+    display_welcome_message
   end
 
   def play
     clear_screen
-    display_welcome_message
 
     loop do
       display_board
@@ -38,12 +43,15 @@ class TTTGame
       end
 
       display_result
+      update_scores if winner
+      display_scores
+      break display_game_winner if game_winner?
       break unless play_again?
       reset
       display_play_again_message
     end
 
-    display_goodbye_message
+    restart? ? restart : display_goodbye_message
   end
 
   private
@@ -98,6 +106,24 @@ class TTTGame
     SIDE_LENGTH > 3
   end
 
+  def display_game_winner
+    case WINNING_SCORE
+    when human.score
+      prompt("#{human} won the game!")
+    when computer.score
+      prompt("#{computer} won the game!")
+    end
+  end
+
+  def display_scores
+    puts "#{human}: #{human.score}"
+    puts "#{computer}: #{computer.score}"
+  end
+
+  def update_scores
+    winner.add_point!
+  end
+
   def user_inputs_difficulty
     if disable_hardest_difficulty?
       message = 'easy (e) or hard (h)'
@@ -118,18 +144,18 @@ class TTTGame
   end
 
   def display_board
-    puts "You're #{human.marker}. Computer is #{computer.marker}."
-    puts ""
+    prompt("You're #{human.marker}. Computer is #{computer.marker}.")
+    puts
     board.draw
   end
 
   def display_goodbye_message
-    puts "Thanks for playing Tic Tac Toe! Goodbye!"
+    prompt("Thanks for playing Tic Tac Toe! Goodbye!")
   end
 
   def display_play_again_message
-    puts "Let's play again!"
-    puts ''
+    prompt("Let's play again!")
+    puts
   end
 
   def display_result
@@ -137,17 +163,21 @@ class TTTGame
 
     case board.winning_marker
     when human.marker
-      puts "You won!"
+      prompt("#{human} won!")
     when computer.marker
-      puts "Computer won!"
+      prompt("#{computer} won!")
     else
-      puts "The board is full!"
+      prompt("The board is full! It's a tie!")
     end
   end
 
   def display_welcome_message
-    puts "Welcome to Tic Tac Toe!"
-    puts ""
+    prompt("Hi, #{human}! Welcome to Tic Tac Toe!")
+    puts
+  end
+
+  def game_winner?
+    winner&.score == WINNING_SCORE
   end
 
   def human_moves
@@ -161,21 +191,35 @@ class TTTGame
   end
 
   def play_again?
-    answer = nil
-    loop do
-      puts "Would you like to play again? (y/n)"
-      answer = gets.chomp.downcase
-      break if %w[y n].include?(answer)
-      puts "Sorry, must be y or n"
-    end
+    answer = input("Would you like to play again? (y/n)", %w[y n yes no])
+    answer.start_with?('y')
+  end
 
-    answer == 'y'
+  def restart?
+    answer = input("Do you want to restart? (y/n)", %w[y n yes no])
+    answer.start_with?('y')
+  end
+
+  def restart
+    human.reset_score
+    computer.reset_score
+    reset
+    play
   end
 
   def reset
     board.reset
     @current_marker = @first_marker
     clear_screen
+  end
+
+  def winner
+    case board.winning_marker
+    when human.marker 
+      human
+    when computer.marker
+      computer
+    end
   end
 end
 

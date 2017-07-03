@@ -1,17 +1,17 @@
 class Square
   INITIAL_MARKER = ' '
 
-  attr_reader :number
+  attr_reader :key
   attr_accessor :marker
 
-  def initialize(marker = INITIAL_MARKER, number)
+  def initialize(key, marker = INITIAL_MARKER)
+    @key = key
     @marker = marker
-    @number = number
   end
 
   def format
-    layers = { }
-    layers[:top] = number.to_s + (' ' * (5 - number.to_s.size)) + '|'
+    layers = {}
+    layers[:top] = key.to_s + (' ' * (5 - key.to_s.size)) + '|'
     layers[:middle] = "  #{@marker}  |"
     layers[:bottom] = '     |'
 

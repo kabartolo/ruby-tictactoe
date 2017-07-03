@@ -7,12 +7,12 @@ class Minimax
     @min_player = min_player
   end
 
-  def optimal_move
-    available_first_moves = @start_state.available_moves
+  def best_move
+    first_available_moves = @start_state.available_moves
     minimaxed_scores = {}
 
-    next_possible_states = available_first_moves.map do |move|
-      next_state = @start_state.try_move(move, max_player)
+    next_possible_states = first_available_moves.map do |move|
+      next_state = @start_state.hypothetical_next_state(move, max_player)
       [next_state, move]
     end
 
@@ -63,7 +63,7 @@ class Minimax
     end
 
     next_possible_states = state.available_moves.map do |move|
-      state.try_move(move, minimax_player)
+      state.hypothetical_next_state(move, minimax_player)
     end
 
     case minimax_player

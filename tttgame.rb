@@ -2,17 +2,17 @@ require_relative 'board'
 require_relative 'square'
 require_relative 'player'
 require_relative 'displayable'
-require 'pry'
 
 class TTTGame
-  HUMAN_MARKER = 'X'
-  COMPUTER_MARKER = 'O'
+  MARKERS = ['X', 'O'].freeze
 
-  FIRST_TO_MOVE = :choose # :choose, HUMAN_MARKER, or COMPUTER_MARKER
+  FIRST_TO_MOVE = :choose # :choose, :human, or :computer
   DIFFICULTY = :choose # :choose, :easy, :hard, or :impossible
-  
+
   WINNING_SCORE = 5
   SIDE_LENGTH = 3
+
+  SIDE_LENGTH_MAX_FOR_IMPOSSIBLE = 3
 
   include Displayable
 
@@ -20,48 +20,41 @@ class TTTGame
 
   def initialize
     @board = Board.new(SIDE_LENGTH)
-    @human = Human.new(HUMAN_MARKER)
-    @computer = Computer.new(COMPUTER_MARKER, board)
+    @human = Human.new
+    @computer = Computer.new(board)
 
+    decide_markers
     @first_marker = decide_first_player
-    @current_marker = @first_marker
+    @current_marker = nil
+
     @difficulty = decide_difficulty
 
+    reset!
     display_welcome_message
   end
 
   def play
-    clear_screen
-
     loop do
       display_board
-
-      loop do
-        current_player_moves
-        break if board.someone_won? || board.full?
-        clear_screen_and_display_board #if human_turn?
-      end
-
+      play_round
       display_result
       update_scores if winner
       display_scores
+
       break display_game_winner if game_winner?
       break unless play_again?
-      reset
+
+      reset!
       display_play_again_message
     end
 
-    restart? ? restart : display_goodbye_message
+    restart? ? restart! : display_goodbye_message
   end
 
   private
 
   def alternate_player
-    if human_turn?
-      @current_marker = COMPUTER_MARKER
-    else
-      @current_marker = HUMAN_MARKER
-    end
+    @current_marker = (human_turn? ? computer.marker : human.marker)
   end
 
   def clear_screen_and_display_board
@@ -70,7 +63,7 @@ class TTTGame
   end
 
   def computer_moves
-    square_key = computer.choose_square(difficulty, human.marker)
+    square_key = computer.choose_square(difficulty)
 
     board[square_key] = computer.marker
   end
@@ -80,30 +73,41 @@ class TTTGame
     alternate_player
   end
 
-  def decide_first_player
-    return FIRST_TO_MOVE unless FIRST_TO_MOVE == :choose
-
-    answer = input("Do you want to go first? (y or n)", %w[y yes n no])
-    answer.start_with?('y') ? HUMAN_MARKER : COMPUTER_MARKER
-  end
-
   def decide_difficulty
     difficulty = if DIFFICULTY == :choose
-                   user_inputs_difficulty
+                   user_chooses_difficulty
                  else
                    DIFFICULTY
                  end
 
     if difficulty == :impossible && disable_hardest_difficulty?
-      prompt("'Impossible' difficulty disabled on boards greater than 3x3.")
-      difficulty = user_inputs_difficulty
+      prompt("'Impossible' difficulty disabled.")
+      difficulty = user_chooses_difficulty
     end
 
     difficulty
   end
 
+  def decide_first_player
+    case FIRST_TO_MOVE
+    when :human
+      human.marker
+    when :computer
+      computer.marker
+    when :choose
+      answer = input("Do you want to go first? (y or n)", %w[y yes n no])
+      answer.start_with?('y') ? human.marker : computer.marker
+    end
+  end
+
+  def decide_markers
+    human.choose_marker(MARKERS)
+    computer.human_marker = human.marker
+    computer.choose_marker(MARKERS)
+  end
+
   def disable_hardest_difficulty?
-    SIDE_LENGTH > 3
+    SIDE_LENGTH > SIDE_LENGTH_MAX_FOR_IMPOSSIBLE
   end
 
   def display_game_winner
@@ -118,29 +122,6 @@ class TTTGame
   def display_scores
     puts "#{human}: #{human.score}"
     puts "#{computer}: #{computer.score}"
-  end
-
-  def update_scores
-    winner.add_point!
-  end
-
-  def user_inputs_difficulty
-    if disable_hardest_difficulty?
-      message = 'easy (e) or hard (h)'
-      options = %w[e easy h hard]
-    else
-      message = 'easy (e), hard (h), or impossible (i)'
-      options = %w[e easy h hard i impossible]
-    end
-
-    prompt("Choose your difficulty: ")
-    answer = input(message, options)
-
-    case answer.chr
-    when 'e' then :easy
-    when 'h' then :hard
-    when 'i' then :impossible
-    end
   end
 
   def display_board
@@ -161,7 +142,7 @@ class TTTGame
   def display_result
     clear_screen_and_display_board
 
-    case board.winning_marker
+    case board.winning_marker(SIDE_LENGTH)
     when human.marker
       prompt("#{human} won!")
     when computer.marker
@@ -187,7 +168,7 @@ class TTTGame
   end
 
   def human_turn?
-    @current_marker == HUMAN_MARKER
+    @current_marker == human.marker
   end
 
   def play_again?
@@ -195,27 +176,58 @@ class TTTGame
     answer.start_with?('y')
   end
 
+  def play_round
+    loop do
+      current_player_moves
+      break if board.end_of_game?
+      clear_screen_and_display_board
+    end
+  end
+
+  def reset!
+    board.reset!
+    @current_marker = @first_marker
+    clear_screen
+  end
+
   def restart?
     answer = input("Do you want to restart? (y/n)", %w[y n yes no])
     answer.start_with?('y')
   end
 
-  def restart
-    human.reset_score
-    computer.reset_score
-    reset
+  def restart!
+    human.reset_score!
+    computer.reset_score!
+    reset!
     play
   end
 
-  def reset
-    board.reset
-    @current_marker = @first_marker
-    clear_screen
+  def update_scores
+    winner.add_point!
+  end
+
+  def user_chooses_difficulty
+    if disable_hardest_difficulty?
+      message = 'easy (e) or hard (h)'
+      options = %w[e easy h hard]
+    else
+      message = 'easy (e), hard (h), or impossible (i)'
+      options = %w[e easy h hard i impossible]
+    end
+
+    prompt("Choose your difficulty: ")
+    answer = input(message, options)
+
+    case answer.chr
+    when 'e' then :easy
+    when 'h' then :hard
+    when 'i' then :impossible
+    end
   end
 
   def winner
-    case board.winning_marker
-    when human.marker 
+    case board.winning_marker(SIDE_LENGTH)
+    when human.marker
       human
     when computer.marker
       computer

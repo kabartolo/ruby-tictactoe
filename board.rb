@@ -1,100 +1,69 @@
-class Board
-  attr_reader :squares, :side_length, :winning_lines
-  attr_writer :squares
+require_relative 'minimax'
 
-  def initialize(side_length, squares = {})
-    @squares = squares
+class Board
+  def initialize(side_length)
     @side_length = side_length
+    @squares = {}
     @winning_lines = calculate_winning_lines
-    reset if squares.empty?
+
+    reset!
   end
 
   def []=(key, marker)
     @squares[key].marker = marker
   end
 
-  def center_square_key
-    @squares.keys[(side_length ** 2) / 2]
+  def best_move(computer_marker, human_marker)
+    find_threatened_square(computer_marker) ||
+      find_threatened_square(human_marker) ||
+      center_square_key_if_unmarked ||
+      random_square
+  end
+
+  def best_move_by_minimax(computer_marker, human_marker)
+    minimax = Minimax.new(self, computer_marker, human_marker)
+    center_square_key_if_board_empty || minimax.best_move
   end
 
   def draw
-    row_squares = rows.map { |row| row.map { |num| @squares[num] } }
+    row_squares = rows.map { |row| row.map { |key| @squares[key] } }
     last_row = row_squares.pop
+
     row_squares.each do |row|
       draw_row(row)
-      draw_border(side_length)
+      draw_border(@side_length)
     end
 
     draw_row(last_row)
   end
 
-  def empty?
-    marked_keys.empty?
-  end
-
   def end_of_game?
-    someone_won? || full? 
+    someone_won? || full?
   end
 
-  def lines_with_n_identical_markers(n)
-    lines = []
-    @winning_lines.each do |line|
-      line_squares = squares.values_at(*line)
-      if n_identical_markers?(line_squares, n)
-        lines << line_squares
-      end
-    end
-
-    lines
-  end        
-
-  def find_threatened_square(marker)
-    threatened_lines = lines_with_n_identical_markers(2)
-    line = threatened_lines.find do |line|
-      line.any? { |square| square.marker == marker }
-    end
-    line&.find(&:unmarked?)&.number
+  def random_square
+    unmarked_keys.sample
   end
 
-  def full?
-    unmarked_keys.empty?
-  end
-
-  def reset
-    (1..side_length ** 2).each { |key| @squares[key] = Square.new(key) }
-  end
-
-  def marked_keys
-    @squares.keys.select { |key| @squares[key].marked? }
-  end
-
-  def someone_won?
-    !!winning_marker
-  end
-
-  def unmarked_center_square_key
-    center_square_key if @squares[center_square_key].unmarked?
+  def reset!
+    (1..@side_length**2).each { |key| @squares[key] = Square.new(key) }
   end
 
   def unmarked_keys
     @squares.keys.select { |key| @squares[key].unmarked? }
   end
 
-  def winning_combinations
-    winning_lines
-  end
-
-  def winning_marker
+  def winning_marker(num_squares_to_win)
     @winning_lines.each do |line|
-      line_squares = squares.values_at(*line)
-      if n_identical_markers?(line_squares, 3)
+      line_squares = @squares.values_at(*line)
+      if n_identical_markers?(line_squares, num_squares_to_win)
         return line_squares.first.marker
       end
     end
     nil
   end
 
-  # Methods used only by Minimax class
+  #---Public methods used by Minimax class---
 
   def available_moves
     unmarked_keys
@@ -105,11 +74,12 @@ class Board
   end
 
   # Creates a copy of the current board and returns the
-  # hypothetical next state.
-  def try_move(new_key, new_marker)
+  # hypothetical next state without modifying the actual
+  # board used in play.
+  def hypothetical_next_state(new_key, new_marker)
     new_board = Board.new(@side_length)
 
-    squares.each do |key, square|
+    @squares.each do |key, square|
       new_board[key] = square.marker
     end
 
@@ -118,14 +88,46 @@ class Board
   end
 
   def winning_player
-    winning_marker
-  end
-
-  def winning_combinations
-    winning_lines
+    winning_marker(@side_length)
   end
 
   private
+
+  def calculate_winning_lines
+    rows + columns(rows) + diagonals
+  end
+
+  def center_square_key
+    @squares.keys[(@side_length**2) / 2]
+  end
+
+  def center_square_key_if_board_empty
+    center_square_key if empty?
+  end
+
+  def center_square_key_if_unmarked
+    center_square_key if @squares[center_square_key].unmarked?
+  end
+
+  def columns(rows)
+    rows.map.with_index do |row, outer_index|
+      row.map.with_index { |_, inner_index| rows[inner_index][outer_index] }
+    end
+  end
+
+  def diagonals
+    num_squares = @side_length**2
+    diagonals = []
+
+    diagonals << (1..num_squares).step(@side_length + 1).to_a
+    diagonals << (@side_length..num_squares - 1).step(@side_length - 1).to_a
+
+    diagonals
+  end
+
+  def draw_border(size)
+    puts '-----+' * (size - 1) + '-----'
+  end
 
   def draw_row(row_squares)
     top = ''
@@ -144,39 +146,53 @@ class Board
     puts bottom.chomp('|')
   end
 
-  def draw_border(size)
-    puts '-----+' * (size - 1) + '-----'
-  end
-  
-  def rows
-    num_squares = side_length**2
-
-    (1..num_squares).each_slice(side_length).to_a
+  def empty?
+    marked_keys.empty?
   end
 
-  def columns(rows)
-    rows.map.with_index do |row, outer_index|
-      row.map.with_index { |_, inner_index| rows[inner_index][outer_index] }
+  def find_threatened_square(marker)
+    threatened_lines = lines_with_n_identical_markers(@side_length - 1)
+    line = threatened_lines.find do |current_line|
+      current_line.any? { |square| square.marker == marker }
     end
+
+    threatened_square = line&.find(&:unmarked?)
+    threatened_square&.key
   end
 
-  def diagonals
-    num_squares = side_length**2
-    diagonals = []
-
-    diagonals << (1..num_squares).step(@side_length + 1).to_a
-    diagonals << (side_length..num_squares - 1).step(side_length - 1).to_a
-
-    diagonals
+  def full?
+    unmarked_keys.empty?
   end
 
-  def calculate_winning_lines
-    rows + columns(rows) + diagonals
+  def lines_with_n_identical_markers(n)
+    lines = []
+    @winning_lines.each do |line|
+      line_squares = @squares.values_at(*line)
+      if n_identical_markers?(line_squares, n)
+        lines << line_squares
+      end
+    end
+
+    lines
+  end
+
+  def marked_keys
+    @squares.keys.select { |key| @squares[key].marked? }
   end
 
   def n_identical_markers?(squares, n)
     markers = squares.select(&:marked?).map(&:marker)
     return false if markers.size != n
     markers.uniq.size == 1
+  end
+
+  def rows
+    num_squares = @side_length**2
+
+    (1..num_squares).each_slice(@side_length).to_a
+  end
+
+  def someone_won?
+    !!winning_marker(@side_length)
   end
 end
